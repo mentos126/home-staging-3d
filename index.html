@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maquette 3D — Étage (visite 3D)</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- Réticule (mode visite) -->
+    <div id="crosshair" class="hidden">+</div>
+
+    <!-- Overlay "cliquer pour explorer" (mode visite) -->
+    <div id="lock-overlay" class="hidden">
+      <div class="lock-card">
+        <div class="lock-icon">🚶</div>
+        <h2>Mode visite</h2>
+        <p>Clique pour entrer dans la maison</p>
+        <ul>
+          <li><b>Z Q S D</b> / <b>W A S D</b> / <b>flèches</b> — se déplacer</li>
+          <li><b>Souris</b> — regarder autour</li>
+          <li><b>Maj</b> — courir · <b>Échap</b> — sortir</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="hud">
+      <h1>Étage — R+1</h1>
+      <p class="sub">3 chambres · salle de bain · dégagement · terrasse · vide sur séjour</p>
+
+      <div class="modes">
+        <button id="mode-orbit" class="active">🔭 Survol</button>
+        <button id="mode-fp">🚶 Visite</button>
+      </div>
+
+      <label class="row"><input type="checkbox" id="toggle-ceiling" /> Plafond visible</label>
+      <label class="row"><input type="checkbox" id="toggle-labels" checked /> Noms des pièces</label>
+      <label class="row"><input type="checkbox" id="toggle-cotes" checked /> Cotes des murs</label>
+      <label class="row"><input type="checkbox" id="toggle-grid" checked /> Grille (1 m)</label>
+
+      <div class="hint" id="hint">
+        <b>Survol</b> — clic gauche : orbite · molette : zoom · clic droit : déplace
+      </div>
+    </div>
+
+    <div id="legend">
+      <span><i style="background:#c9a26b"></i> Chambres</span>
+      <span><i style="background:#cdd6dd"></i> Salle de bain</span>
+      <span><i style="background:#b0bec5"></i> Dégagement</span>
+      <span><i style="background:#8a6f4e"></i> Terrasse</span>
+      <span><i style="background:#9fd0e0"></i> Garde-corps</span>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

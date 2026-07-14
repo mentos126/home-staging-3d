@@ -1,0 +1,18 @@
+{
+  "name": "home-staging-3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Maquette 3D d'un etage sous rampant (mono-pente) a partir d'un plan dessine a la main.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  }
+}

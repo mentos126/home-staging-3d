@@ -1,0 +1,104 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #1b1f24;
+  color: #e8eaed;
+}
+
+#app { position: fixed; inset: 0; }
+canvas { display: block; }
+
+.hidden { display: none !important; }
+
+/* ------------------------------- HUD ---------------------------------- */
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  background: rgba(24, 28, 33, 0.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 18px;
+  max-width: 310px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+#hud h1 { font-size: 16px; font-weight: 650; }
+#hud .sub { font-size: 12px; color: #9aa4b0; margin: 4px 0 14px; line-height: 1.4; }
+
+.modes { display: flex; gap: 8px; margin-bottom: 14px; }
+.modes button {
+  flex: 1;
+  padding: 9px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c4ccd4;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.modes button:hover { background: rgba(255, 255, 255, 0.1); }
+.modes button.active {
+  background: #3d6ea5;
+  border-color: #5b9dd9;
+  color: #fff;
+}
+
+.row {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13px; padding: 5px 0; cursor: pointer; user-select: none;
+}
+.row input { width: 15px; height: 15px; accent-color: #5b9dd9; cursor: pointer; }
+
+#hud .hint {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px; color: #8a94a0; line-height: 1.7;
+}
+#hud .hint b { color: #c4ccd4; font-weight: 600; }
+
+/* ----------------------------- Legend --------------------------------- */
+#legend {
+  position: fixed; bottom: 16px; left: 16px; z-index: 10;
+  display: flex; gap: 16px; flex-wrap: wrap;
+  background: rgba(24, 28, 33, 0.82); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px;
+  padding: 10px 14px; font-size: 12px; max-width: 60vw;
+}
+#legend span { display: flex; align-items: center; gap: 7px; }
+#legend i { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+
+/* ---------------------------- Crosshair ------------------------------- */
+#crosshair {
+  position: fixed; top: 50%; left: 50%; z-index: 20;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 22px; font-weight: 300; pointer-events: none;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
+}
+
+/* --------------------------- Lock overlay ----------------------------- */
+#lock-overlay {
+  position: fixed; inset: 0; z-index: 15;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 18, 22, 0.55); backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+.lock-card {
+  text-align: center;
+  background: rgba(24, 28, 33, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px; padding: 30px 40px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+.lock-icon { font-size: 44px; margin-bottom: 8px; }
+.lock-card h2 { font-size: 20px; margin-bottom: 6px; }
+.lock-card p { color: #9aa4b0; margin-bottom: 16px; }
+.lock-card ul { list-style: none; text-align: left; font-size: 13px; line-height: 2; color: #c4ccd4; }
+.lock-card b { color: #fff; background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 4px; }
