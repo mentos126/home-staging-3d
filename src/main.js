@@ -110,42 +110,62 @@ function glass(horizontal, fixed, s, e, y0, y1) {
   mesh(w, y1 - y0, d, cx, (y0 + y1) / 2, cz, matGlass);
 }
 
+// Mur le long de Z (X fixe) dont le sommet suit le rampant : profil trapézoïdal.
+function slopedSeg(x, z0, z1, y0, mat, collide) {
+  if (z1 - z0 <= 1e-4) return;
+  const shape = new THREE.Shape();
+  shape.moveTo(z0, y0);
+  shape.lineTo(z1, y0);
+  shape.lineTo(z1, roofAt(z1));
+  shape.lineTo(z0, roofAt(z0));
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: T, bevelEnabled: false });
+  const m = new THREE.Mesh(geo, mat);
+  m.rotation.y = -Math.PI / 2; // (u=Z, v=Y, épaisseur -> X)
+  m.position.set(x + T / 2, 0, 0);
+  m.castShadow = true; m.receiveShadow = true;
+  building.add(m);
+  if (collide) addCollider(x, (z0 + z1) / 2, T, z1 - z0);
+}
+
 /*
- *  addWall(x1,z1,x2,z2, opts)  — mur axis-aligned avec ouvertures.
- *  gaps: [{at, w, type:'door'|'window'}]  (at = coord sur l'axe variable)
+ *  addWall(x1,z1,x2,z2, opts)  — mur SOUS RAMPANT : le sommet suit la pente.
+ *  Murs le long de X (Z fixe) : hauteur constante = roofAt(Z).
+ *  Murs le long de Z (X fixe) : trapèzes (slopedSeg).
+ *  gaps: [{at, w, type:'door'|'window'}]
  */
 function addWall(x1, z1, x2, z2, opts = {}) {
-  const { height = H, mat = matWall, gaps = [], collide = true, railing = false } = opts;
+  const { mat = matWall, gaps = [], collide = true } = opts;
   const horizontal = Math.abs(z2 - z1) < 1e-6;
   const a0 = horizontal ? Math.min(x1, x2) : Math.min(z1, z2);
   const a1 = horizontal ? Math.max(x1, x2) : Math.max(z1, z2);
   const fixed = horizontal ? z1 : x1;
   wallRuns.push({ horizontal, fixed, a0, a1 });
 
-  if (railing) { // garde-corps vitré + main courante, collide
-    glass(horizontal, fixed, a0, a1, 0.05, height);
-    seg(horizontal, fixed, a0, a1, height, height + 0.05, matWall, false);
-    addCollider(horizontal ? (a0 + a1) / 2 : fixed, horizontal ? fixed : (a0 + a1) / 2,
-      horizontal ? a1 - a0 : T, horizontal ? T : a1 - a0);
-    return;
-  }
+  // tronçon plein de s à e, démarrant à y0, sommet au rampant
+  const solid = (s, e, y0, coll) => {
+    if (horizontal) seg(true, fixed, s, e, y0, roofAt(fixed), mat, coll);
+    else slopedSeg(fixed, s, e, y0, mat, coll);
+  };
 
   const gs = gaps
     .map(g => ({ s: g.at - g.w / 2, e: g.at + g.w / 2, type: g.type || 'door' }))
     .sort((p, q) => p.s - q.s);
   let cursor = a0;
   for (const g of gs) {
-    if (g.s > cursor) seg(horizontal, fixed, cursor, g.s, 0, height, mat, collide);
+    if (g.s > cursor) solid(cursor, g.s, 0, collide);
+    const hMin = horizontal ? roofAt(fixed) : Math.min(roofAt(g.s), roofAt(g.e));
     if (g.type === 'window') {
-      seg(horizontal, fixed, g.s, g.e, 0, SILL, mat, collide);       // allège (bloque)
-      seg(horizontal, fixed, g.s, g.e, WIN_TOP, height, mat, false); // linteau
-      glass(horizontal, fixed, g.s, g.e, SILL, WIN_TOP);
+      seg(horizontal, fixed, g.s, g.e, 0, SILL, mat, collide);   // allège (bloque)
+      const wTop = Math.min(WIN_TOP, hMin - 0.05);               // la fenêtre s'arrête sous le rampant
+      glass(horizontal, fixed, g.s, g.e, SILL, wTop);
+      solid(g.s, g.e, wTop, false);                              // linteau
     } else {
-      seg(horizontal, fixed, g.s, g.e, DOOR_H, height, mat, false);  // linteau porte (passage libre)
+      solid(g.s, g.e, DOOR_H, false);                            // linteau porte (passage libre)
     }
     cursor = Math.max(cursor, g.e);
   }
-  if (cursor < a1) seg(horizontal, fixed, cursor, a1, 0, height, mat, collide);
+  if (cursor < a1) solid(cursor, a1, 0, collide);
 }
 
 // Dalle de sol
@@ -180,21 +200,32 @@ const DRESS_X1 = X_c2;          // 7,87  (contre la cloison Chambre 2 | Chambre 
 const DRESS_X0 = X_c2 - 2.0;    // 5,87  (2 m de large)
 const DRESS_Z0 = (RD + 1.22) - 2.0; // 3,43  mur nord du dressing (2 m de profond jusqu'au vide)
 
+// --- Rampant : tout l'étage est sous pente (mono-pente le long de Z) ---
+const H_HIGH = 4.0;  // mur côté dégagement (Z = Z_deg) — « mur rouge »
+const H_LOW  = 1.6;  // mur des fenêtres des chambres (Z = 0) — « mur bleu »
+const roofAt = (z) => H_LOW + (H_HIGH - H_LOW) * (z / Z_deg);
+
 /* ------------------------------- SOLS ---------------------------------- */
 floorSlab(0, 0, XW, RD, matWood);                 // chambres (base bois)
 floorSlab(X_c1, 0, X_sdb, RD, matBath);           // salle de bain (carrelage)
 floorSlab(0, RD, X_terr, Z_deg, matCorr);         // dégagement / palier
-floorSlab(X_terr, RD, XW, Z_out, matDeck);        // terrasse
 floorSlab(DRESS_X0, DRESS_Z0, DRESS_X1, Z_deg, matWood); // ex-dressing, fusionné à la Chambre 3
 floorSlab(X_sdb, DRESS_Z0, DRESS_X0, RD, matCorr, 0.01); // élargissement du dégagement devant le dressing
-// dalle inférieure visible par le vide (séjour en dessous)
-floorSlab(-1, -1, XW + 1, Z_out + 1, matSlabLo, -2.75);
 
-/* ------------------------------ PLAFONDS -------------------------------- */
+/* ---------------------- RAMPANT (toit en pente) ------------------------- */
 const ceilings = [];
-ceilings.push(ceilSlab(0, 0, XW, RD));      // au-dessus des chambres
-ceilings.push(ceilSlab(0, RD, X_terr, Z_deg)); // au-dessus du dégagement
-// (terrasse + vide = pas de plafond)
+{
+  const ang = Math.atan2(H_HIGH - H_LOW, Z_deg);
+  const roofSlab = (x0, x1, z0, z1) => {
+    const len = (z1 - z0) / Math.cos(ang);
+    const m = mesh(x1 - x0, 0.06, len,
+      (x0 + x1) / 2, (roofAt(z0) + roofAt(z1)) / 2 + 0.05, (z0 + z1) / 2, matCeil);
+    m.rotation.x = -ang; // le bord côté dégagement (Z fort) est le plus haut
+    return m;
+  };
+  ceilings.push(roofSlab(0, X_terr, 0, Z_deg));   // au-dessus chambres 1-2 + dégagement
+  ceilings.push(roofSlab(X_terr, XW, 0, RD));     // au-dessus de la chambre 3 (partie est)
+}
 
 /* ------------------------- MURS EXTÉRIEURS ------------------------------ */
 // Nord (fenêtres des chambres + SdB)
@@ -206,11 +237,11 @@ addWall(0, 0, XW, 0, { gaps: [
 ] });
 // Ouest (chambre 1 + palier)
 addWall(0, 0, 0, Z_deg);
-// Est (chambre 3 + terrasse)
-addWall(XW, 0, XW, Z_out, { gaps: [{ at: 2.1, w: 1.4, type: 'window' }] });
-// Sud : partie vide (mur plein) + partie terrasse (garde-corps bas)
-addWall(X_stair, Z_out, X_terr, Z_out);
-addWall(X_terr, Z_out, XW, Z_out, { height: 1.05, mat: matDeck });
+// Est (chambre 3)
+addWall(XW, 0, XW, RD, { gaps: [{ at: 2.1, w: 1.4, type: 'window' }] });
+// Sud : façade le long du dégagement (vide/terrasse non conservés)
+addWall(0, Z_deg, X_terr, Z_deg);
+addWall(X_terr, RD, X_terr, Z_deg); // retour est du dégagement
 
 /* ------------------------ CLOISONS INTÉRIEURES -------------------------- */
 // séparations entre pièces (pleines)
@@ -225,9 +256,8 @@ addWall(0, RD, X_sdb, RD, { gaps: [
 // Mur sud de la Chambre 2 reculé (trait bleu) : aligné sur le mur nord du dressing.
 // Le dégagement s'élargit devant la porte du dressing (manœuvre des meubles).
 addWall(X_sdb, DRESS_Z0, DRESS_X0, DRESS_Z0, { gaps: [{ at: 5.3, w: 0.9 }] }); // porte Chambre 2
-// Chambre 3 : mur sud avec porte vers la terrasse
-// (le tronçon X 7,87–8,72 est supprimé : la Chambre 3 s'ouvre sur le bout de couloir devant la porte de terrasse)
-addWall(X_terr, RD, XW, RD, { gaps: [{ at: 10.6, w: 0.9 }] });
+// Chambre 3 : mur sud — l'ex-porte de terrasse devient une fenêtre (terrasse non conservée)
+addWall(X_terr, RD, XW, RD, { gaps: [{ at: 10.6, w: 1.4, type: 'window' }] });
 
 // --- Dressing = section du dégagement élargie à 2 m (cloisons "bleues") ---
 addWall(DRESS_X0, DRESS_Z0, DRESS_X1, DRESS_Z0);   // mur nord (bleu horizontal)
@@ -241,25 +271,7 @@ function closet(x0, z0, x1, z1) {
 }
 closet(6.0, Z_deg - 0.53, 7.8, Z_deg - 0.03);           // côté vide (adossée au garde-corps)
 closet(6.0, DRESS_Z0 + 0.03, 7.8, DRESS_Z0 + 0.53);     // adossée au mur de la Chambre 2
-// (mur sud supprimé — le garde-corps vitré du vide fait office de séparation)
-// Mur entre dégagement/vide (ouest) et terrasse (est), avec porte terrasse
-addWall(X_terr, RD, X_terr, Z_out, { gaps: [{ at: 4.9, w: 0.95 }] });
-// Mur ouest du vide (côté escalier)
-addWall(X_stair, Z_deg, X_stair, Z_out);
-
-/* --------------------------- GARDE-CORPS VIDE --------------------------- */
-addWall(X_stair, Z_deg, X_terr, Z_deg, { railing: true }); // bord nord du vide
-
-/* ------------------------------ ESCALIER -------------------------------- */
-// Descend dans la partie ouest du vide (visuel), visible depuis le palier.
-{
-  const steps = 12, run = 0.26, rise = 2.75 / steps;
-  const sx0 = 0.5, sx1 = 2.6;
-  for (let i = 0; i < steps; i++) {
-    const y = -i * rise;
-    mesh(sx1 - sx0, rise + 0.02, run, (sx0 + sx1) / 2, y - rise / 2, Z_deg + 0.3 + run * (i + 0.5), matStair);
-  }
-}
+// (vide sur séjour, escalier et terrasse supprimés — seule l'aile chambres est conservée)
 
 /* ------------------------------- LABELS --------------------------------- */
 function makeLabel(text, color) {
@@ -294,8 +306,6 @@ addLabel('Salle de bain', 3.875, RD / 2, '#cfe3ee');
 addLabel('Chambre 2', 5.4, 1.35);
 addLabel('Chambre 3', 9.845, RD / 2);
 addLabel('Dégagement', 5.0, RD + CORR / 2, '#d7e0e6');
-addLabel('Terrasse', X_terr + TERR_W / 2, 6.5, '#e6d3b0');
-addLabel('Vide sur séjour', (X_stair + X_terr) / 2, 7.2, '#b7c6d4', 0.6);
 
 // surfaces (m²) — placées sous le nom de chaque pièce
 function addArea(text, x, z) {
@@ -309,7 +319,6 @@ addArea('7,37 m²', 3.875, RD / 2);
 addArea('10,71 m²', 5.4, 1.35);                 // Chambre 2 (mur sud reculé)
 addArea('17,80 m²', 9.845, RD / 2 - 0.4);       // Chambre 3 (dressing inclus)
 addArea('8,27 m²', 5.0, RD + CORR / 2);         // dégagement (élargi devant le dressing)
-addArea('14,69 m²', X_terr + TERR_W / 2, 6.5);  // terrasse
 
 /* ------------------------------- COTES ---------------------------------- */
 const cotes = new THREE.Group();
@@ -328,17 +337,20 @@ addCote('3,95 m', 9.845, 0.28);
 // profondeur des chambres + largeur dégagement
 addCote('4,21 m', XW + 0.4, RD / 2);
 addCote('1,22 m', 1.3, RD + CORR / 2, 0.9);
-// terrasse
-addCote('3,10 m', X_terr + TERR_W / 2, Z_out + 0.35);
-addCote('4,74 m', XW + 0.4, (RD + Z_out) / 2);
 
-// cotes automatiques : longueur de CHAQUE mur, affichée en son milieu
+// cotes automatiques : longueur + HAUTEUR de chaque mur, affichées en son milieu
+const fm = (v) => v.toFixed(2).replace('.', ',');
 for (const w of wallRuns) {
   const len = w.a1 - w.a0;
   if (len < 0.6) continue; // on ignore les tronçons minuscules
-  const text = len.toFixed(2).replace('.', ',') + ' m';
-  addCote(text, w.horizontal ? (w.a0 + w.a1) / 2 : w.fixed,
-                w.horizontal ? w.fixed : (w.a0 + w.a1) / 2, 0.5);
+  const h0 = roofAt(w.horizontal ? w.fixed : w.a0);
+  const h1 = roofAt(w.horizontal ? w.fixed : w.a1);
+  const hTxt = Math.abs(h1 - h0) < 0.01
+    ? `h ${fm(h0)} m`
+    : `h ${fm(Math.min(h0, h1))}→${fm(Math.max(h0, h1))} m`;
+  addCote(`${fm(len)} m · ${hTxt}`,
+    w.horizontal ? (w.a0 + w.a1) / 2 : w.fixed,
+    w.horizontal ? w.fixed : (w.a0 + w.a1) / 2, 0.5);
 }
 
 /* ======================================================================
