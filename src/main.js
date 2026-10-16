@@ -195,9 +195,11 @@ const X_terr = XW - TERR_W; // limite ouest de la terrasse = 8,72
 const X_stair = 2.9;   // limite ouest du vide (côté escalier)
 
 // --- Rampant : tout l'étage est sous pente (mono-pente le long de Z) ---
-const H_HIGH = 4.0;  // mur côté dégagement (Z = Z_deg) — « mur rouge »
-const H_LOW  = 1.6;  // mur des fenêtres des chambres (Z = 0) — « mur bleu »
-const roofAt = (z) => H_LOW + (H_HIGH - H_LOW) * (z / Z_deg);
+// Cotes relevées sur place : 1,60 m au mur des fenêtres, 2,70 m au fond des chambres.
+const H_LOW  = 1.6;  // mur des fenêtres des chambres (Z = 0)
+const H_RD   = 2.7;  // fond des chambres, côté dégagement (Z = RD)
+const roofAt = (z) => H_LOW + (H_RD - H_LOW) * (z / RD);
+const H_HIGH = roofAt(Z_deg); // mur sud du dégagement (Z = Z_deg) ≈ 3,02 m, même pente prolongée
 
 /* ------------------------------- SOLS ---------------------------------- */
 floorSlab(0, 0, XW, RD, matWood);                 // chambres (base bois)
