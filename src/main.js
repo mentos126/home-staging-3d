@@ -179,20 +179,24 @@ function ceilSlab(x0, z0, x1, z1) {
 }
 
 /* ======================================================================
- *  PLAN — coordonnées (m). Bloc chambres au nord (Z=0..4.21).
+ *  PLAN — coordonnées (m). Bloc chambres au nord (Z=0..RD).
  * ==================================================================== */
-const RD = 4.21;       // profondeur des chambres
-const CORR = 1.22;     // largeur du dégagement (couloir) — donné par le plan
-// séparations E-O des pièces (largeurs du plan : 3,00 / 1,75 / 3,12 / 3,95)
-const X_c1 = 3.0;      // Chambre 1 | Salle de bain
-const X_sdb = 4.75;    // Salle de bain | Chambre 2   (3,00 + 1,75)
-const X_c2 = 7.87;     // Chambre 2 | Chambre 3        (+ 3,12)
-const XW = 11.82;      // mur est / largeur intérieure (+ 3,95)
-const Z_deg = RD + CORR;    // limite sud du dégagement = 5,43
-const Z_out = 8.95;    // mur sud hors-tout (terrasse prof. 4,74)
-const TERR_W = 3.1;    // largeur terrasse
-const X_terr = XW - TERR_W; // limite ouest de la terrasse = 8,72
-const X_stair = 2.9;   // limite ouest du vide (côté escalier)
+// Cotes relevées sur place (Chambre 2) : largeur 2,88 m, profondeur 4,11 m,
+// passage entre la cloison Ch2|Ch3 et le retour du dégagement 0,90 m.
+// Les cotes non relevées sont celles du plan, mises à l'échelle des mesures :
+// en X × 2,88 / 3,12 (plan : 3,00 / 1,75 / 3,12 / 3,95), en Z × 4,11 / 4,21 (dégagement 1,22).
+const RD = 4.11;       // profondeur des chambres (mesurée)
+const CORR = 1.19;     // largeur du dégagement (1,22 à l'échelle)
+const W_C1 = 2.77, W_SDB = 1.62, W_C2 = 2.88, W_C3 = 3.65; // largeurs des pièces
+const X_c1 = W_C1;            // Chambre 1 | Salle de bain
+const X_sdb = X_c1 + W_SDB;   // Salle de bain | Chambre 2
+const X_c2 = X_sdb + W_C2;    // Chambre 2 | Chambre 3
+const XW = X_c2 + W_C3;       // mur est / largeur intérieure
+const Z_deg = RD + CORR;      // limite sud du dégagement
+const X_terr = X_c2 + 0.90;   // retour est du dégagement (passage de 0,90 m mesuré)
+// centres des pièces (fenêtres, étiquettes)
+const CX_C1 = X_c1 / 2, CX_SDB = (X_c1 + X_sdb) / 2, CX_C2 = (X_sdb + X_c2) / 2, CX_C3 = (X_c2 + XW) / 2;
+const fm = (v) => v.toFixed(2).replace('.', ',');
 
 // --- Rampant : tout l'étage est sous pente (mono-pente le long de Z) ---
 // Cotes relevées sur place : 1,60 m au mur des fenêtres, 2,70 m au fond des chambres.
@@ -224,15 +228,15 @@ const ceilings = [];
 /* ------------------------- MURS EXTÉRIEURS ------------------------------ */
 // Nord (fenêtres des chambres + SdB)
 addWall(0, 0, XW, 0, { gaps: [
-  { at: 1.5, w: 1.4, type: 'window' },     // Chambre 1
-  { at: 3.875, w: 0.6, type: 'window' },   // Salle de bain
-  { at: 6.31, w: 1.4, type: 'window' },    // Chambre 2
-  { at: 9.845, w: 1.6, type: 'window' },   // Chambre 3
+  { at: CX_C1, w: 1.4, type: 'window' },   // Chambre 1
+  { at: CX_SDB, w: 0.6, type: 'window' },  // Salle de bain
+  { at: CX_C2, w: 1.4, type: 'window' },   // Chambre 2
+  { at: CX_C3, w: 1.6, type: 'window' },   // Chambre 3
 ] });
 // Ouest (chambre 1 + palier)
 addWall(0, 0, 0, Z_deg);
 // Est (chambre 3)
-addWall(XW, 0, XW, RD, { gaps: [{ at: 2.1, w: 1.4, type: 'window' }] });
+addWall(XW, 0, XW, RD, { gaps: [{ at: RD / 2, w: 1.4, type: 'window' }] });
 // Sud : façade le long du dégagement (vide/terrasse non conservés)
 addWall(0, Z_deg, X_terr, Z_deg);
 addWall(X_terr, RD, X_terr, Z_deg); // retour est du dégagement
@@ -244,12 +248,12 @@ addWall(X_sdb, 0, X_sdb, RD);
 addWall(X_c2, 0, X_c2, RD);        // Chambre 2 | Chambre 3
 // Mur sud : Chambre 1 / SdB / Chambre 2 (dressing supprimé, Chambre 2 sur toute la profondeur)
 addWall(0, RD, X_c2, RD, { gaps: [
-  { at: 1.5, w: 0.9 },    // Chambre 1
-  { at: 3.9, w: 0.8 },    // Salle de bain
-  { at: 5.3, w: 0.9 },    // Chambre 2
+  { at: CX_C1, w: 0.9 },              // Chambre 1
+  { at: CX_SDB, w: 0.8 },             // Salle de bain
+  { at: X_sdb + 0.55, w: 0.9 },       // Chambre 2
 ] });
 // Chambre 3 : mur sud — l'ex-porte de terrasse devient une fenêtre (terrasse non conservée)
-addWall(X_terr, RD, XW, RD, { gaps: [{ at: 10.6, w: 1.4, type: 'window' }] });
+addWall(X_terr, RD, XW, RD, { gaps: [{ at: (X_terr + XW) / 2, w: 1.4, type: 'window' }] });
 // (vide sur séjour, escalier et terrasse supprimés — seule l'aile chambres est conservée)
 
 /* ------------------------------- LABELS --------------------------------- */
@@ -280,11 +284,11 @@ function addLabel(text, x, z, color = '#ffe9c2', y = 1.5) {
   spr.position.set(x, y, z);
   labels.add(spr);
 }
-addLabel('Chambre 1', 1.5, RD / 2);
-addLabel('Salle de bain', 3.875, RD / 2, '#cfe3ee');
-addLabel('Chambre 2', 6.31, RD / 2);
-addLabel('Chambre 3', 9.845, RD / 2);
-addLabel('Dégagement', 5.0, RD + CORR / 2, '#d7e0e6');
+addLabel('Chambre 1', CX_C1, RD / 2);
+addLabel('Salle de bain', CX_SDB, RD / 2, '#cfe3ee');
+addLabel('Chambre 2', CX_C2, RD / 2);
+addLabel('Chambre 3', CX_C3, RD / 2);
+addLabel('Dégagement', X_terr / 2, RD + CORR / 2, '#d7e0e6');
 
 // surfaces (m²) — placées sous le nom de chaque pièce
 function addArea(text, x, z) {
@@ -293,11 +297,12 @@ function addArea(text, x, z) {
   spr.position.set(x, 1.05, z);
   labels.add(spr);
 }
-addArea('12,63 m²', 1.5, RD / 2);
-addArea('7,37 m²', 3.875, RD / 2);
-addArea('13,14 m²', 6.31, RD / 2);              // Chambre 2 (3,12 × 4,21)
-addArea('16,63 m²', 9.845, RD / 2);             // Chambre 3 (3,95 × 4,21)
-addArea('10,64 m²', 5.0, RD + CORR / 2);        // dégagement (8,72 × 1,22)
+const m2 = (a, b) => `${fm(a * b)} m²`;
+addArea(m2(W_C1, RD), CX_C1, RD / 2);
+addArea(m2(W_SDB, RD), CX_SDB, RD / 2);
+addArea(m2(W_C2, RD), CX_C2, RD / 2);
+addArea(m2(W_C3, RD), CX_C3, RD / 2);
+addArea(m2(X_terr, CORR), X_terr / 2, RD + CORR / 2); // dégagement
 
 /* ------------------------------- COTES ---------------------------------- */
 const cotes = new THREE.Group();
@@ -309,16 +314,15 @@ function addCote(text, x, z, y = 1.0) {
   cotes.add(spr);
 }
 // largeurs des pièces (le long du mur nord)
-addCote('3,00 m', 1.5, 0.28);
-addCote('1,75 m', 3.875, 0.28);
-addCote('3,12 m', 6.31, 0.28);
-addCote('3,95 m', 9.845, 0.28);
+addCote(`${fm(W_C1)} m`, CX_C1, 0.28);
+addCote(`${fm(W_SDB)} m`, CX_SDB, 0.28);
+addCote(`${fm(W_C2)} m`, CX_C2, 0.28);
+addCote(`${fm(W_C3)} m`, CX_C3, 0.28);
 // profondeur des chambres + largeur dégagement
-addCote('4,21 m', XW + 0.4, RD / 2);
-addCote('1,22 m', 1.3, RD + CORR / 2, 0.9);
+addCote(`${fm(RD)} m`, XW + 0.4, RD / 2);
+addCote(`${fm(CORR)} m`, 1.3, RD + CORR / 2, 0.9);
 
 // cotes automatiques : longueur + HAUTEUR de chaque mur, affichées en son milieu
-const fm = (v) => v.toFixed(2).replace('.', ',');
 for (const w of wallRuns) {
   const len = w.a1 - w.a0;
   if (len < 0.6) continue; // on ignore les tronçons minuscules
@@ -339,9 +343,9 @@ const orbit = new OrbitControls(camera, renderer.domElement);
 orbit.enableDamping = true;
 orbit.dampingFactor = 0.08;
 orbit.maxPolarAngle = Math.PI / 2 - 0.02;
-orbit.target.set(6, 1, 4);
+orbit.target.set(XW / 2, 1, 4);
 
-const ORBIT_POS = new THREE.Vector3(6, 19, -3);
+const ORBIT_POS = new THREE.Vector3(XW / 2, 19, -3);
 
 const fp = new PointerLockControls(camera, renderer.domElement);
 const FP_START = new THREE.Vector3(2.2, EYE, RD + CORR / 2);
@@ -355,7 +359,7 @@ function setOrbit() {
   fp.unlock();
   orbit.enabled = true;
   camera.position.copy(ORBIT_POS);
-  orbit.target.set(6, 1, 4);
+  orbit.target.set(XW / 2, 1, 4);
   orbit.update();
   labels.visible = document.getElementById('toggle-labels').checked;
   cotes.visible = document.getElementById('toggle-cotes').checked;
