@@ -53,7 +53,6 @@ const matCeil  = new THREE.MeshStandardMaterial({ color: '#f4f1ec', roughness: 1
 const matSlabLo = new THREE.MeshStandardMaterial({ color: '#7d8894', roughness: 1 });
 const matGlass = new THREE.MeshStandardMaterial({ color: '#9fd0e0', roughness: 0.1, transparent: true, opacity: 0.25 });
 const matStair = new THREE.MeshStandardMaterial({ color: '#9a8b78', roughness: 0.9 });
-const matDress = new THREE.MeshStandardMaterial({ color: '#a9895f', roughness: 0.85 });
 
 /* -------------------------- Sol extérieur ------------------------------- */
 const ground = new THREE.Mesh(
@@ -195,11 +194,6 @@ const TERR_W = 3.1;    // largeur terrasse
 const X_terr = XW - TERR_W; // limite ouest de la terrasse = 8,72
 const X_stair = 2.9;   // limite ouest du vide (côté escalier)
 
-// Dressing (2 m de large) pris dans l'angle sud-est de la Chambre 2 (côté dégagement)
-const DRESS_X1 = X_c2;          // 7,87  (contre la cloison Chambre 2 | Chambre 3)
-const DRESS_X0 = X_c2 - 2.0;    // 5,87  (2 m de large)
-const DRESS_Z0 = (RD + 1.22) - 2.0; // 3,43  mur nord du dressing (2 m de profond jusqu'au vide)
-
 // --- Rampant : tout l'étage est sous pente (mono-pente le long de Z) ---
 const H_HIGH = 4.0;  // mur côté dégagement (Z = Z_deg) — « mur rouge »
 const H_LOW  = 1.6;  // mur des fenêtres des chambres (Z = 0) — « mur bleu »
@@ -209,8 +203,6 @@ const roofAt = (z) => H_LOW + (H_HIGH - H_LOW) * (z / Z_deg);
 floorSlab(0, 0, XW, RD, matWood);                 // chambres (base bois)
 floorSlab(X_c1, 0, X_sdb, RD, matBath);           // salle de bain (carrelage)
 floorSlab(0, RD, X_terr, Z_deg, matCorr);         // dégagement / palier
-floorSlab(DRESS_X0, DRESS_Z0, DRESS_X1, Z_deg, matWood); // ex-dressing, fusionné à la Chambre 3
-floorSlab(X_sdb, DRESS_Z0, DRESS_X0, RD, matCorr, 0.01); // élargissement du dégagement devant le dressing
 
 /* ---------------------- RAMPANT (toit en pente) ------------------------- */
 const ceilings = [];
@@ -247,30 +239,15 @@ addWall(X_terr, RD, X_terr, Z_deg); // retour est du dégagement
 // séparations entre pièces (pleines)
 addWall(X_c1, 0, X_c1, RD);
 addWall(X_sdb, 0, X_sdb, RD);
-addWall(X_c2, 0, X_c2, DRESS_Z0);  // Chambre 2 | Chambre 3 (ouvert au sud : dressing fusionné à la Ch. 3)
-// Mur sud : Chambre 1 / SdB (le dressing occupe X[5,87–7,87])
-addWall(0, RD, X_sdb, RD, { gaps: [
+addWall(X_c2, 0, X_c2, RD);        // Chambre 2 | Chambre 3
+// Mur sud : Chambre 1 / SdB / Chambre 2 (dressing supprimé, Chambre 2 sur toute la profondeur)
+addWall(0, RD, X_c2, RD, { gaps: [
   { at: 1.5, w: 0.9 },    // Chambre 1
   { at: 3.9, w: 0.8 },    // Salle de bain
+  { at: 5.3, w: 0.9 },    // Chambre 2
 ] });
-// Mur sud de la Chambre 2 reculé (trait bleu) : aligné sur le mur nord du dressing.
-// Le dégagement s'élargit devant la porte du dressing (manœuvre des meubles).
-addWall(X_sdb, DRESS_Z0, DRESS_X0, DRESS_Z0, { gaps: [{ at: 5.3, w: 0.9 }] }); // porte Chambre 2
 // Chambre 3 : mur sud — l'ex-porte de terrasse devient une fenêtre (terrasse non conservée)
 addWall(X_terr, RD, XW, RD, { gaps: [{ at: 10.6, w: 1.4, type: 'window' }] });
-
-// --- Dressing = section du dégagement élargie à 2 m (cloisons "bleues") ---
-addWall(DRESS_X0, DRESS_Z0, DRESS_X1, DRESS_Z0);   // mur nord (bleu horizontal)
-addWall(DRESS_X0, DRESS_Z0, DRESS_X0, Z_deg, { gaps: [{ at: 4.43, w: 0.9 }] }); // mur ouest (bleu) — porte centrée entre les 2 penderies
-// mur est supprimé : l'ex-dressing est ouvert sur la Chambre 3
-
-// --- Penderies (meubles dressing) 50 cm de profondeur ---
-function closet(x0, z0, x1, z1) {
-  mesh(x1 - x0, 2.2, z1 - z0, (x0 + x1) / 2, 1.1, (z0 + z1) / 2, matDress);
-  addCollider((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0);
-}
-closet(6.0, Z_deg - 0.53, 7.8, Z_deg - 0.03);           // côté vide (adossée au garde-corps)
-closet(6.0, DRESS_Z0 + 0.03, 7.8, DRESS_Z0 + 0.53);     // adossée au mur de la Chambre 2
 // (vide sur séjour, escalier et terrasse supprimés — seule l'aile chambres est conservée)
 
 /* ------------------------------- LABELS --------------------------------- */
@@ -303,7 +280,7 @@ function addLabel(text, x, z, color = '#ffe9c2', y = 1.5) {
 }
 addLabel('Chambre 1', 1.5, RD / 2);
 addLabel('Salle de bain', 3.875, RD / 2, '#cfe3ee');
-addLabel('Chambre 2', 5.4, 1.35);
+addLabel('Chambre 2', 6.31, RD / 2);
 addLabel('Chambre 3', 9.845, RD / 2);
 addLabel('Dégagement', 5.0, RD + CORR / 2, '#d7e0e6');
 
@@ -316,9 +293,9 @@ function addArea(text, x, z) {
 }
 addArea('12,63 m²', 1.5, RD / 2);
 addArea('7,37 m²', 3.875, RD / 2);
-addArea('10,71 m²', 5.4, 1.35);                 // Chambre 2 (mur sud reculé)
-addArea('17,80 m²', 9.845, RD / 2 - 0.4);       // Chambre 3 (dressing inclus)
-addArea('8,27 m²', 5.0, RD + CORR / 2);         // dégagement (élargi devant le dressing)
+addArea('13,14 m²', 6.31, RD / 2);              // Chambre 2 (3,12 × 4,21)
+addArea('16,63 m²', 9.845, RD / 2);             // Chambre 3 (3,95 × 4,21)
+addArea('10,64 m²', 5.0, RD + CORR / 2);        // dégagement (8,72 × 1,22)
 
 /* ------------------------------- COTES ---------------------------------- */
 const cotes = new THREE.Group();
