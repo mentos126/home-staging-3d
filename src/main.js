@@ -53,6 +53,8 @@ const matCeil  = new THREE.MeshStandardMaterial({ color: '#f4f1ec', roughness: 1
 const matSlabLo = new THREE.MeshStandardMaterial({ color: '#7d8894', roughness: 1 });
 const matGlass = new THREE.MeshStandardMaterial({ color: '#9fd0e0', roughness: 0.1, transparent: true, opacity: 0.25 });
 const matStair = new THREE.MeshStandardMaterial({ color: '#9a8b78', roughness: 0.9 });
+const matDress = new THREE.MeshStandardMaterial({ color: '#e2d6c2', roughness: 0.7 });
+const matJoint = new THREE.MeshStandardMaterial({ color: '#7a6f60', roughness: 1 });
 
 /* -------------------------- Sol extérieur ------------------------------- */
 const ground = new THREE.Mesh(
@@ -167,6 +169,39 @@ function addWall(x1, z1, x2, z2, opts = {}) {
   if (cursor < a1) solid(cursor, a1, 0, collide);
 }
 
+/*
+ *  dressing(x0,z0,x1,z1, front) — caisson plein de x0..x1 × z0..z1 dont le dessus
+ *  suit le rampant. front ('n'|'s'|'e'|'w') = face des portes : joints tous les ~60 cm.
+ */
+function dressing(x0, z0, x1, z1, front) {
+  const top = (z) => roofAt(z) - 0.03; // jeu sous le rampant
+  const shape = new THREE.Shape();
+  shape.moveTo(z0, 0);
+  shape.lineTo(z1, 0);
+  shape.lineTo(z1, top(z1));
+  shape.lineTo(z0, top(z0));
+  shape.closePath();
+  const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: x1 - x0, bevelEnabled: false }), matDress);
+  m.rotation.y = -Math.PI / 2; // (u=Z, v=Y, profondeur -> X, de x1 vers x0)
+  m.position.set(x1, 0, 0);
+  m.castShadow = true; m.receiveShadow = true;
+  building.add(m);
+  addCollider((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0);
+
+  // joints verticaux entre les portes, posés sur la face avant
+  const alongX = front === 'n' || front === 's';
+  const a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1;
+  const n = Math.max(1, Math.round((a1 - a0) / 0.6));
+  const out = { n: -1, s: 1, w: -1, e: 1 }[front] * 0.003;
+  const f = { n: z0, s: z1, w: x0, e: x1 }[front] + out;
+  for (let i = 1; i < n; i++) {
+    const a = a0 + (a1 - a0) * i / n;
+    const h = top(alongX ? f : a) - 0.06;
+    if (alongX) mesh(0.012, h - 0.08, 0.006, a, (0.08 + h) / 2, f, matJoint);
+    else mesh(0.006, h - 0.08, 0.012, f, (0.08 + h) / 2, a, matJoint);
+  }
+}
+
 // Dalle de sol
 function floorSlab(x0, z0, x1, z1, mat, y = 0) {
   const w = x1 - x0, d = z1 - z0;
@@ -181,19 +216,21 @@ function ceilSlab(x0, z0, x1, z1) {
 /* ======================================================================
  *  PLAN — coordonnées (m). Bloc chambres au nord (Z=0..RD).
  * ==================================================================== */
-// Cotes relevées sur place (Chambre 2) : largeur 2,88 m, profondeur 4,11 m,
-// passage entre la cloison Ch2|Ch3 et le retour du dégagement 0,90 m.
-// Les cotes non relevées sont celles du plan, mises à l'échelle des mesures :
-// en X × 2,88 / 3,12 (plan : 3,00 / 1,75 / 3,12 / 3,95), en Z × 4,11 / 4,21 (dégagement 1,22).
-const RD = 4.11;       // profondeur des chambres (mesurée)
+// Cotes relevées sur place (Chambre 2) : largeur 2,45 m, profondeur 4,00 m,
+// passage entre la cloison Ch2|Ch3 et le retour du dégagement 1,45 m.
+// La cloison Ch2|Ch3 a été déplacée : la Chambre 3 récupère la largeur perdue (façade 10,92 m inchangée).
+// Les autres cotes sont celles du plan mises à l'échelle (en X × 2,88 / 3,12, dégagement 1,22 → 1,19).
+const RD = 4.00;       // profondeur des chambres (mesurée)
 const CORR = 1.19;     // largeur du dégagement (1,22 à l'échelle)
-const W_C1 = 2.77, W_SDB = 1.62, W_C2 = 2.88, W_C3 = 3.65; // largeurs des pièces
+const W_C1 = 2.77, W_SDB = 1.62, W_C2 = 2.45, W_C3 = 4.08; // largeurs des pièces (total 10,92 m)
 const X_c1 = W_C1;            // Chambre 1 | Salle de bain
 const X_sdb = X_c1 + W_SDB;   // Salle de bain | Chambre 2
 const X_c2 = X_sdb + W_C2;    // Chambre 2 | Chambre 3
 const XW = X_c2 + W_C3;       // mur est / largeur intérieure
 const Z_deg = RD + CORR;      // limite sud du dégagement
-const X_terr = X_c2 + 0.90;   // retour est du dégagement (passage de 0,90 m mesuré)
+const X_terr = X_c2 + 1.45;   // retour est du dégagement (passage de 1,45 m mesuré)
+const X_sep = X_sdb + 1.05;   // cloison du dégagement, dans l'alignement du tableau est de la porte Ch2
+const DRESS = 0.5;            // profondeur des dressings
 // centres des pièces (fenêtres, étiquettes)
 const CX_C1 = X_c1 / 2, CX_SDB = (X_c1 + X_sdb) / 2, CX_C2 = (X_sdb + X_c2) / 2, CX_C3 = (X_c2 + XW) / 2;
 const fm = (v) => v.toFixed(2).replace('.', ',');
@@ -203,7 +240,7 @@ const fm = (v) => v.toFixed(2).replace('.', ',');
 const H_LOW  = 1.6;  // mur des fenêtres des chambres (Z = 0)
 const H_RD   = 2.7;  // fond des chambres, côté dégagement (Z = RD)
 const roofAt = (z) => H_LOW + (H_RD - H_LOW) * (z / RD);
-const H_HIGH = roofAt(Z_deg); // mur sud du dégagement (Z = Z_deg) ≈ 3,02 m, même pente prolongée
+const H_HIGH = roofAt(Z_deg); // mur sud du dégagement (Z = Z_deg) ≈ 3,03 m, même pente prolongée
 
 /* ------------------------------- SOLS ---------------------------------- */
 floorSlab(0, 0, XW, RD, matWood);                 // chambres (base bois)
@@ -256,6 +293,20 @@ addWall(0, RD, X_c2, RD, { gaps: [
 addWall(X_terr, RD, XW, RD, { gaps: [{ at: (X_terr + XW) / 2, w: 1.4, type: 'window' }] });
 // (vide sur séjour, escalier et terrasse supprimés — seule l'aile chambres est conservée)
 
+// Cloison du dégagement : porte de 0,73 m collée à la façade sud
+const DOOR_SEP = 0.73;
+addWall(X_sep, RD, X_sep, Z_deg, { gaps: [{ at: Z_deg - T / 2 - DOOR_SEP / 2, w: DOOR_SEP }] });
+// Chambre 2 : muret de 0,50 m contre le mur sud, à droite de la porte (joue du dressing)
+addWall(X_sep, RD - T / 2 - DRESS, X_sep, RD);
+
+/* ------------------------------ DRESSINGS ------------------------------- */
+// Chambre 2 : le long du mur sud, du muret à la cloison Ch2|Ch3
+dressing(X_sep + T / 2, RD - T / 2 - DRESS, X_c2 - T / 2, RD - T / 2, 'n');
+// Dégagement (après la cloison) : le long du mur de la Chambre 2, retour d'angle compris
+dressing(X_sep + T / 2, RD + T / 2, X_c2 + T / 2 + DRESS, RD + T / 2 + DRESS, 's');
+// Chambre 3 : le long de la cloison Ch2|Ch3, jusqu'à 0,70 m du mur des fenêtres
+dressing(X_c2 + T / 2, 0.7, X_c2 + T / 2 + DRESS, RD + T / 2, 'e');
+
 /* ------------------------------- LABELS --------------------------------- */
 function makeLabel(text, color) {
   const c = document.createElement('canvas');
@@ -302,7 +353,9 @@ addArea(m2(W_C1, RD), CX_C1, RD / 2);
 addArea(m2(W_SDB, RD), CX_SDB, RD / 2);
 addArea(m2(W_C2, RD), CX_C2, RD / 2);
 addArea(m2(W_C3, RD), CX_C3, RD / 2);
-addArea(m2(X_terr, CORR), X_terr / 2, RD + CORR / 2); // dégagement
+addArea(m2(X_sep, CORR), X_terr / 2, RD + CORR / 2); // dégagement (jusqu'à la cloison)
+addLabel('Dressing', (X_sep + X_terr) / 2, RD + CORR / 2, '#e6d3b3');
+addArea(m2(X_terr - X_sep, CORR), (X_sep + X_terr) / 2, RD + CORR / 2);
 
 /* ------------------------------- COTES ---------------------------------- */
 const cotes = new THREE.Group();
